@@ -1,4 +1,8 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+// Load environment variables first
+dotenv.config();
 
 if (!process.env.MONGODB_URL) {
   console.error("MONGODB_URL environment variable is not set.");
