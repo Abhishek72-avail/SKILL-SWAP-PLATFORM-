@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { mongoStorage } from "./mongoStorage";
 import { setupCustomAuth, isAuthenticated } from "./customAuth";
+import { setupVideoCall, videoCallManager } from "./videoCall";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -286,6 +287,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Video call initiation endpoint
+  app.post('/api/calls/initiate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { targetUserId, swapRequestId } = req.body;
+      const initiatorId = req.user._id;
+
+      if (!targetUserId) {
+        return res.status(400).json({ message: 'Target user ID is required' });
+      }
+
+      const result = await videoCallManager.initiateCallForSwapRequest(
+        swapRequestId,
+        initiatorId,
+        targetUserId
+      );
+
+      if (result.success) {
+        res.json({ roomId: result.roomId, message: 'Call initiated successfully' });
+      } else {
+        res.status(400).json({ message: result.message });
+      }
+    } catch (error) {
+      console.error('Error initiating call:', error);
+      res.status(500).json({ message: 'Failed to initiate call' });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Setup video calling with WebSocket support
+  setupVideoCall(httpServer);
+  
   return httpServer;
 }

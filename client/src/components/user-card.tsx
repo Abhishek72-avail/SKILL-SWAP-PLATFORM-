@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Star, Handshake } from "lucide-react";
+import CallButton from "@/components/call-button";
 
 interface UserCardProps {
   user: {
@@ -138,13 +139,22 @@ export default function UserCard({ user, onSendRequest }: UserCardProps) {
           </div>
         )}
 
-        <Button 
-          onClick={onSendRequest}
-          className="w-full bg-odoo-purple hover:bg-purple-700 text-sm font-medium"
-        >
-          <Handshake className="mr-2 h-4 w-4" />
-          Send Swap Request
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            onClick={onSendRequest}
+            className="w-full bg-odoo-purple hover:bg-purple-700 text-sm font-medium"
+          >
+            <Handshake className="mr-2 h-4 w-4" />
+            Send Swap Request
+          </Button>
+          
+          <CallButton
+            targetUserId={user.id}
+            targetUserName={`${user.firstName} ${user.lastName}`}
+            variant="outline"
+            className="w-full"
+          />
+        </div>
       </CardContent>
     </Card>
   );

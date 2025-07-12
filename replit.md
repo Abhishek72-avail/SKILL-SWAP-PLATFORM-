@@ -93,5 +93,8 @@ The application is configured for deployment on Replit with the following setup:
 - **Session Management**: Implemented MongoDB-based session storage with connect-mongo
 - **Security**: Added bcrypt password hashing for secure credential storage
 - **Pages**: Created dedicated sign-in and registration pages with professional design
+- **In-App Video Calling**: Implemented WebRTC-based video calling for remote skill sharing sessions
+- **Video Call Infrastructure**: Added Socket.IO signaling server, call invitation system, and dedicated video call page
+- **Call Integration**: Added video call buttons to user cards and swap request management
 
 The application uses environment-based configuration with development and production modes, ensuring proper security measures and performance optimizations for each environment.
