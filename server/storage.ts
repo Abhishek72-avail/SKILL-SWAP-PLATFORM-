@@ -132,12 +132,17 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(skills.category, category));
     }
 
-    return await db
-      .select()
+    const results = await db
+      .select({
+        skill: skills,
+        user: users
+      })
       .from(skills)
       .innerJoin(users, eq(skills.userId, users.id))
       .where(and(...conditions))
       .limit(20);
+
+    return results.map(({ skill, user }) => ({ ...skill, user }));
   }
 
   // User browsing
@@ -201,15 +206,32 @@ export class DatabaseStorage implements IStorage {
       ? eq(swapRequests.requesterId, userId)
       : eq(swapRequests.targetId, userId);
 
-    return await db
-      .select()
+    const results = await db
+      .select({
+        swapRequest: swapRequests,
+        requester: users
+      })
       .from(swapRequests)
       .innerJoin(users, eq(swapRequests.requesterId, users.id))
-      .innerJoin(users, eq(swapRequests.targetId, users.id))
-      .innerJoin(skills, eq(swapRequests.offeredSkillId, skills.id))
-      .innerJoin(skills, eq(swapRequests.wantedSkillId, skills.id))
       .where(condition)
       .orderBy(desc(swapRequests.createdAt));
+
+    // Get target users and skills separately to avoid duplicate alias issues
+    const enrichedResults = await Promise.all(results.map(async (result) => {
+      const targetUser = await this.getUser(result.swapRequest.targetId);
+      const [offeredSkill] = await db.select().from(skills).where(eq(skills.id, result.swapRequest.offeredSkillId));
+      const [wantedSkill] = await db.select().from(skills).where(eq(skills.id, result.swapRequest.wantedSkillId));
+      
+      return {
+        ...result.swapRequest,
+        requester: result.requester,
+        target: targetUser!,
+        offeredSkill,
+        wantedSkill
+      };
+    }));
+
+    return enrichedResults;
   }
 
   async updateSwapRequestStatus(id: number, status: string): Promise<SwapRequest> {
@@ -227,16 +249,25 @@ export class DatabaseStorage implements IStorage {
     offeredSkill: Skill;
     wantedSkill: Skill;
   }) | undefined> {
-    const [request] = await db
+    const [swapRequest] = await db
       .select()
       .from(swapRequests)
-      .innerJoin(users, eq(swapRequests.requesterId, users.id))
-      .innerJoin(users, eq(swapRequests.targetId, users.id))
-      .innerJoin(skills, eq(swapRequests.offeredSkillId, skills.id))
-      .innerJoin(skills, eq(swapRequests.wantedSkillId, skills.id))
       .where(eq(swapRequests.id, id));
     
-    return request;
+    if (!swapRequest) return undefined;
+
+    const requester = await this.getUser(swapRequest.requesterId);
+    const target = await this.getUser(swapRequest.targetId);
+    const [offeredSkill] = await db.select().from(skills).where(eq(skills.id, swapRequest.offeredSkillId));
+    const [wantedSkill] = await db.select().from(skills).where(eq(skills.id, swapRequest.wantedSkillId));
+    
+    return {
+      ...swapRequest,
+      requester: requester!,
+      target: target!,
+      offeredSkill,
+      wantedSkill
+    };
   }
 
   // Review operations
@@ -264,12 +295,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserReviews(userId: string): Promise<(Review & { reviewer: User })[]> {
-    return await db
-      .select()
+    const results = await db
+      .select({
+        review: reviews,
+        reviewer: users
+      })
       .from(reviews)
       .innerJoin(users, eq(reviews.reviewerId, users.id))
       .where(eq(reviews.revieweeId, userId))
       .orderBy(desc(reviews.createdAt));
+
+    return results.map(({ review, reviewer }) => ({ ...review, reviewer }));
   }
 
   // Admin operations
@@ -295,14 +331,27 @@ export class DatabaseStorage implements IStorage {
     offeredSkill: Skill;
     wantedSkill: Skill;
   })[]> {
-    return await db
+    const allRequests = await db
       .select()
       .from(swapRequests)
-      .innerJoin(users, eq(swapRequests.requesterId, users.id))
-      .innerJoin(users, eq(swapRequests.targetId, users.id))
-      .innerJoin(skills, eq(swapRequests.offeredSkillId, skills.id))
-      .innerJoin(skills, eq(swapRequests.wantedSkillId, skills.id))
       .orderBy(desc(swapRequests.createdAt));
+
+    const enrichedResults = await Promise.all(allRequests.map(async (request) => {
+      const requester = await this.getUser(request.requesterId);
+      const target = await this.getUser(request.targetId);
+      const [offeredSkill] = await db.select().from(skills).where(eq(skills.id, request.offeredSkillId));
+      const [wantedSkill] = await db.select().from(skills).where(eq(skills.id, request.wantedSkillId));
+      
+      return {
+        ...request,
+        requester: requester!,
+        target: target!,
+        offeredSkill,
+        wantedSkill
+      };
+    }));
+
+    return enrichedResults;
   }
 
   async createPlatformMessage(message: InsertPlatformMessage): Promise<PlatformMessage> {

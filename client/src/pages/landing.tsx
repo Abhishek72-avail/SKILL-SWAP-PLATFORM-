@@ -22,10 +22,15 @@ export default function Landing() {
                 <p className="text-sm text-gray-500">Professional Exchange</p>
               </div>
             </div>
-            <Button onClick={handleLogin} className="bg-odoo-purple hover:bg-purple-700">
-              Sign In
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => window.location.href = "/signin"} variant="ghost" className="text-odoo-purple hover:bg-odoo-purple/10">
+                Sign In
+              </Button>
+              <Button onClick={() => window.location.href = "/register"} className="bg-odoo-purple hover:bg-purple-700">
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -39,14 +44,24 @@ export default function Landing() {
           <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
             Connect with professionals, trade your expertise, and learn new skills through our innovative skill-swapping platform.
           </p>
-          <Button 
-            onClick={handleLogin}
-            size="lg"
-            className="bg-odoo-purple hover:bg-purple-700 text-lg px-8 py-4"
-          >
-            Get Started
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              onClick={handleLogin}
+              size="lg"
+              className="bg-odoo-purple hover:bg-purple-700 text-lg px-8 py-4"
+            >
+              Get Started Free
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => window.location.href = "/signin"}
+              className="border-odoo-purple text-odoo-purple hover:bg-odoo-purple hover:text-white text-lg px-8 py-4"
+            >
+              Sign In
+            </Button>
+          </div>
         </div>
       </section>
 

@@ -108,20 +108,18 @@ export default function Sidebar() {
             const IconComponent = item.icon;
             return (
               <li key={item.href}>
-                <Link href={item.href}>
-                  <a className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    item.active
-                      ? "text-white bg-odoo-purple"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}>
-                    <IconComponent className="mr-3 h-4 w-4" />
-                    {item.label}
-                    {item.badge && (
-                      <Badge className="ml-auto bg-red-100 text-red-800 text-xs font-medium">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </a>
+                <Link href={item.href} className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                  item.active
+                    ? "text-white bg-odoo-purple"
+                    : "text-gray-700 hover:bg-gray-100"
+                }`}>
+                  <IconComponent className="mr-3 h-4 w-4" />
+                  {item.label}
+                  {item.badge && (
+                    <Badge className="ml-auto bg-red-100 text-red-800 text-xs font-medium">
+                      {item.badge}
+                    </Badge>
+                  )}
                 </Link>
               </li>
             );
@@ -139,15 +137,13 @@ export default function Sidebar() {
                 const IconComponent = item.icon;
                 return (
                   <li key={item.href}>
-                    <Link href={item.href}>
-                      <a className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                        item.active
-                          ? "text-white bg-odoo-purple"
-                          : "text-gray-700 hover:bg-gray-100"
-                      }`}>
-                        <IconComponent className="mr-3 h-4 w-4" />
-                        {item.label}
-                      </a>
+                    <Link href={item.href} className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                      item.active
+                        ? "text-white bg-odoo-purple"
+                        : "text-gray-700 hover:bg-gray-100"
+                    }`}>
+                      <IconComponent className="mr-3 h-4 w-4" />
+                      {item.label}
                     </Link>
                   </li>
                 );
