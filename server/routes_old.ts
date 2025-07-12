@@ -2,6 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { mongoStorage } from "./mongoStorage";
 import { setupCustomAuth, isAuthenticated } from "./customAuth";
+import { 
+  insertSkillSchema, 
+  insertSwapRequestSchema, 
+  insertReviewSchema,
+  insertPlatformMessageSchema 
+} from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -67,6 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const skill = await mongoStorage.createSkill(skillData);
       res.status(201).json(skill);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid skill data", errors: error.errors });
+      }
       console.error("Error creating skill:", error);
       res.status(500).json({ message: "Failed to create skill" });
     }
@@ -74,14 +84,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put('/api/skills/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const skillId = req.params.id;
-      const skillData = req.body;
+      const skillId = parseInt(req.params.id);
+      const updateData = req.body;
       
-      const skill = await mongoStorage.updateSkill(skillId, skillData);
-      if (!skill) {
-        return res.status(404).json({ message: "Skill not found" });
-      }
-      
+      const skill = await storage.updateSkill(skillId, updateData);
       res.json(skill);
     } catch (error) {
       console.error("Error updating skill:", error);
@@ -91,9 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete('/api/skills/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const skillId = req.params.id;
-      await mongoStorage.deleteSkill(skillId);
-      res.sendStatus(204);
+      const skillId = parseInt(req.params.id);
+      await storage.deleteSkill(skillId);
+      res.status(204).send();
     } catch (error) {
       console.error("Error deleting skill:", error);
       res.status(500).json({ message: "Failed to delete skill" });
@@ -102,40 +108,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/skills/search', async (req, res) => {
     try {
-      const { q: query, type, category } = req.query;
-      
-      if (!query || typeof query !== 'string') {
-        return res.status(400).json({ message: "Query parameter 'q' is required" });
-      }
-      
-      const skills = await mongoStorage.searchSkills(
-        query,
+      const { q, type, category } = req.query;
+      const results = await storage.searchSkills(
+        q as string || '',
         type as string,
         category as string
       );
-      
-      res.json(skills);
+      res.json(results);
     } catch (error) {
       console.error("Error searching skills:", error);
       res.status(500).json({ message: "Failed to search skills" });
     }
   });
 
-  // User browsing routes
+  // Browse users routes
   app.get('/api/users', async (req, res) => {
     try {
-      const { limit = '20', offset = '0', q: query } = req.query;
+      const { limit = 20, offset = 0, search } = req.query;
       
-      if (query && typeof query === 'string') {
-        const users = await mongoStorage.searchUsers(query);
-        res.json(users);
+      let users;
+      if (search) {
+        users = await storage.searchUsers(search as string);
       } else {
-        const users = await mongoStorage.getPublicUsers(
-          parseInt(limit as string, 10),
-          parseInt(offset as string, 10)
+        users = await storage.getPublicUsers(
+          parseInt(limit as string),
+          parseInt(offset as string)
         );
-        res.json(users);
       }
+      
+      res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -143,26 +144,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Swap request routes
-  app.post('/api/swap-requests', isAuthenticated, async (req: any, res) => {
-    try {
-      const requesterId = req.user._id;
-      const requestData = {
-        ...req.body,
-        requesterId,
-      };
-      
-      const swapRequest = await mongoStorage.createSwapRequest(requestData);
-      res.status(201).json(swapRequest);
-    } catch (error) {
-      console.error("Error creating swap request:", error);
-      res.status(500).json({ message: "Failed to create swap request" });
-    }
-  });
-
   app.get('/api/swap-requests/sent', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user._id;
-      const requests = await mongoStorage.getSwapRequestsForUser(userId, "sent");
+      const userId = req.user.claims.sub;
+      const requests = await storage.getSwapRequestsForUser(userId, "sent");
       res.json(requests);
     } catch (error) {
       console.error("Error fetching sent requests:", error);
@@ -172,8 +157,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/swap-requests/received', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user._id;
-      const requests = await mongoStorage.getSwapRequestsForUser(userId, "received");
+      const userId = req.user.claims.sub;
+      const requests = await storage.getSwapRequestsForUser(userId, "received");
       res.json(requests);
     } catch (error) {
       console.error("Error fetching received requests:", error);
@@ -181,56 +166,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/swap-requests', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const requestData = insertSwapRequestSchema.parse({
+        ...req.body,
+        requesterId: userId,
+      });
+      
+      const request = await storage.createSwapRequest(requestData);
+      res.status(201).json(request);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+      }
+      console.error("Error creating swap request:", error);
+      res.status(500).json({ message: "Failed to create swap request" });
+    }
+  });
+
   app.put('/api/swap-requests/:id/status', isAuthenticated, async (req: any, res) => {
     try {
-      const requestId = req.params.id;
+      const requestId = parseInt(req.params.id);
       const { status } = req.body;
       
-      const updatedRequest = await mongoStorage.updateSwapRequestStatus(requestId, status);
-      if (!updatedRequest) {
-        return res.status(404).json({ message: "Swap request not found" });
+      if (!["accepted", "rejected", "cancelled"].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
       }
       
-      res.json(updatedRequest);
+      const request = await storage.updateSwapRequestStatus(requestId, status);
+      res.json(request);
     } catch (error) {
-      console.error("Error updating swap request status:", error);
-      res.status(500).json({ message: "Failed to update swap request status" });
+      console.error("Error updating request status:", error);
+      res.status(500).json({ message: "Failed to update request status" });
     }
   });
 
   // Review routes
   app.post('/api/reviews', isAuthenticated, async (req: any, res) => {
     try {
-      const reviewerId = req.user._id;
-      const reviewData = {
+      const userId = req.user.claims.sub;
+      const reviewData = insertReviewSchema.parse({
         ...req.body,
-        reviewerId,
-      };
+        reviewerId: userId,
+      });
       
-      const review = await mongoStorage.createReview(reviewData);
+      const review = await storage.createReview(reviewData);
       res.status(201).json(review);
     } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid review data", errors: error.errors });
+      }
       console.error("Error creating review:", error);
       res.status(500).json({ message: "Failed to create review" });
     }
   });
 
-  app.get('/api/users/:id/reviews', async (req, res) => {
+  app.get('/api/reviews/:userId', async (req, res) => {
     try {
-      const userId = req.params.id;
-      const reviews = await mongoStorage.getUserReviews(userId);
+      const reviews = await storage.getUserReviews(req.params.userId);
       res.json(reviews);
     } catch (error) {
-      console.error("Error fetching user reviews:", error);
-      res.status(500).json({ message: "Failed to fetch user reviews" });
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
     }
   });
 
-  // Dashboard stats
+  // Statistics routes
   app.get('/api/stats/dashboard', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user._id;
-      const stats = await mongoStorage.getUserStats(userId);
+      const userId = req.user.claims.sub;
+      const stats = await storage.getUserStats(userId);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -241,31 +247,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin routes
   app.get('/api/admin/users', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
-      const { limit = '50', offset = '0' } = req.query;
-      const users = await mongoStorage.getAllUsers(
-        parseInt(limit as string, 10),
-        parseInt(offset as string, 10)
+      const { limit = 50, offset = 0 } = req.query;
+      const users = await storage.getAllUsers(
+        parseInt(limit as string),
+        parseInt(offset as string)
       );
       res.json(users);
     } catch (error) {
-      console.error("Error fetching users for admin:", error);
+      console.error("Error fetching all users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.post('/api/admin/users/:id/ban', isAuthenticated, async (req: any, res) => {
+  app.put('/api/admin/users/:id/ban', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
-      const userId = req.params.id;
-      await mongoStorage.banUser(userId);
-      res.sendStatus(200);
+      await storage.banUser(req.params.id);
+      res.status(204).send();
     } catch (error) {
       console.error("Error banning user:", error);
       res.status(500).json({ message: "Failed to ban user" });
@@ -274,15 +281,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/admin/swap-requests', isAuthenticated, async (req: any, res) => {
     try {
-      if (!req.user.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
-      const requests = await mongoStorage.getAllSwapRequests();
+      const requests = await storage.getAllSwapRequests();
       res.json(requests);
     } catch (error) {
-      console.error("Error fetching swap requests for admin:", error);
+      console.error("Error fetching all swap requests:", error);
       res.status(500).json({ message: "Failed to fetch swap requests" });
+    }
+  });
+
+  app.post('/api/admin/messages', isAuthenticated, async (req: any, res) => {
+    try {
+      const user = await storage.getUser(req.user.claims.sub);
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const messageData = insertPlatformMessageSchema.parse(req.body);
+      const message = await storage.createPlatformMessage(messageData);
+      res.status(201).json(message);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid message data", errors: error.errors });
+      }
+      console.error("Error creating platform message:", error);
+      res.status(500).json({ message: "Failed to create message" });
+    }
+  });
+
+  app.get('/api/platform-messages', async (req, res) => {
+    try {
+      const messages = await storage.getActivePlatformMessages();
+      res.json(messages);
+    } catch (error) {
+      console.error("Error fetching platform messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
     }
   });
 

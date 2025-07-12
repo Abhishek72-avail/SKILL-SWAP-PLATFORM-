@@ -1,183 +1,236 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Handshake, Star, Users, TrendingUp, Shield, CheckCircle } from "lucide-react";
-import { Link } from "wouter";
+import { ArrowRight, Users, Star, MessageCircle, Award } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Register() {
-  const handleRegister = () => {
-    window.location.href = "/api/login";
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    location: "",
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (userData: typeof formData) => {
+      const res = await apiRequest("POST", "/api/register", userData);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      toast({
+        title: "Welcome to SkillSwap!",
+        description: "Your account has been created successfully.",
+      });
+      setLocation("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Registration failed",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    registerMutation.mutate(formData);
   };
 
-  const benefits = [
-    {
-      icon: Users,
-      title: "Connect with Professionals",
-      description: "Join a community of skilled professionals ready to share knowledge"
-    },
-    {
-      icon: TrendingUp,
-      title: "Grow Your Skills",
-      description: "Learn new skills while teaching others what you know best"
-    },
-    {
-      icon: Star,
-      title: "Build Your Reputation",
-      description: "Gain ratings and reviews to showcase your expertise"
-    },
-    {
-      icon: Shield,
-      title: "Secure Platform",
-      description: "Safe and verified environment for professional skill exchange"
-    }
-  ];
-
-  const features = [
-    "Create detailed skill profiles",
-    "Browse thousands of available skills",
-    "Send and receive swap requests",
-    "Schedule learning sessions",
-    "Rate and review experiences",
-    "Track your learning progress"
-  ];
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-odoo-purple/10 via-white to-odoo-teal/10 flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-odoo-purple rounded-lg flex items-center justify-center">
-                <Handshake className="text-white text-lg" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link href="/">
+            <div className="inline-flex items-center gap-3 mb-4 cursor-pointer">
+              <div className="h-10 w-10 bg-odoo-purple rounded-lg flex items-center justify-center">
+                <Users className="h-6 w-6 text-white" />
               </div>
-              <span className="text-2xl font-bold text-odoo-dark">SkillSwap</span>
-            </Link>
-            <nav className="hidden md:flex space-x-6">
-              <Link href="/" className="text-gray-600 hover:text-odoo-purple transition-colors">
-                Home
-              </Link>
-              <Link href="/signin" className="text-gray-600 hover:text-odoo-purple transition-colors">
-                Sign In
-              </Link>
-            </nav>
-          </div>
+              <h1 className="text-2xl font-bold text-odoo-dark">SkillSwap</h1>
+            </div>
+          </Link>
+          <p className="text-gray-600">Join the professional skill exchange platform</p>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 py-12 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-12">
-            <Badge className="mb-4 bg-odoo-purple/10 text-odoo-purple border-odoo-purple/20">
-              Join the Community
-            </Badge>
-            <h1 className="text-4xl font-bold text-odoo-dark mb-4">
-              Start Your Skill Exchange Journey
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Connect with professionals, learn new skills, and share your expertise in a secure environment designed for growth.
-            </p>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-12 items-start">
-            {/* Registration Card */}
-            <div>
-              <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
-                <CardHeader className="text-center">
-                  <div className="w-16 h-16 bg-odoo-purple rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Handshake className="text-white text-2xl" />
+        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          {/* Registration Form */}
+          <div className="flex items-center justify-center">
+            <Card className="w-full max-w-md">
+              <CardHeader className="space-y-1">
+                <CardTitle className="text-2xl text-center">Create Account</CardTitle>
+                <CardDescription className="text-center">
+                  Join our community of skill-sharing professionals
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        placeholder="John"
+                        value={formData.firstName}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        placeholder="Doe"
+                        value={formData.lastName}
+                        onChange={handleChange}
+                      />
+                    </div>
                   </div>
-                  <CardTitle className="text-2xl font-bold text-odoo-dark">
-                    Create Your Account
-                  </CardTitle>
-                  <CardDescription className="text-gray-600">
-                    Join thousands of professionals already exchanging skills
-                  </CardDescription>
-                </CardHeader>
-                
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="font-semibold text-odoo-dark">What you'll get:</h3>
-                    <ul className="space-y-3">
-                      {features.map((feature, index) => (
-                        <li key={index} className="flex items-center space-x-3">
-                          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                          <span className="text-gray-700">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username *</Label>
+                    <Input
+                      id="username"
+                      name="username"
+                      type="text"
+                      placeholder="Choose a unique username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      required
+                    />
                   </div>
-
-                  <Button 
-                    onClick={handleRegister}
-                    className="w-full bg-odoo-purple hover:bg-odoo-purple/90 text-white font-medium py-3"
-                    size="lg"
-                  >
-                    Get Started - It's Free
-                  </Button>
-
-                  <div className="text-center">
-                    <p className="text-xs text-gray-500">
-                      By creating an account, you agree to our Terms of Service and Privacy Policy
-                    </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password *</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      placeholder="Create a secure password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location <span className="text-sm text-gray-500">(optional)</span></Label>
+                    <Input
+                      id="location"
+                      name="location"
+                      type="text"
+                      placeholder="City, Country"
+                      value={formData.location}
+                      onChange={handleChange}
+                    />
                   </div>
                 </CardContent>
-
-                <CardFooter className="text-center">
-                  <p className="text-sm text-gray-600 w-full">
+                <CardFooter className="flex flex-col space-y-4">
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-odoo-purple hover:bg-purple-700"
+                    disabled={registerMutation.isPending}
+                  >
+                    {registerMutation.isPending ? "Creating Account..." : "Create Account"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <p className="text-sm text-center text-gray-600">
                     Already have an account?{" "}
-                    <Link href="/signin" className="text-odoo-purple hover:underline font-medium">
+                    <Link href="/signin" className="text-odoo-purple hover:underline">
                       Sign in here
                     </Link>
                   </p>
                 </CardFooter>
-              </Card>
+              </form>
+            </Card>
+          </div>
+
+          {/* Platform Benefits */}
+          <div className="space-y-6">
+            <div className="text-center lg:text-left">
+              <h2 className="text-3xl font-bold text-odoo-dark mb-4">
+                Why Join SkillSwap?
+              </h2>
+              <p className="text-lg text-gray-600 mb-8">
+                Transform your professional growth through collaborative skill exchange
+              </p>
             </div>
 
-            {/* Benefits Section */}
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-bold text-odoo-dark mb-6">
-                  Why Choose SkillSwap?
-                </h2>
-                <div className="grid gap-6">
-                  {benefits.map((benefit, index) => {
-                    const IconComponent = benefit.icon;
-                    return (
-                      <div key={index} className="flex items-start space-x-4 p-4 rounded-lg bg-white/50 backdrop-blur-sm border border-gray-100">
-                        <div className="w-12 h-12 bg-odoo-purple/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <IconComponent className="w-6 h-6 text-odoo-purple" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-odoo-dark mb-2">{benefit.title}</h3>
-                          <p className="text-gray-600">{benefit.description}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Star className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-odoo-dark mb-2">Learn New Skills</h3>
+                  <p className="text-gray-600">
+                    Expand your expertise by learning from industry professionals in exchange for your own knowledge.
+                  </p>
                 </div>
               </div>
 
-              <div className="text-center p-6 bg-odoo-teal/10 rounded-lg">
-                <h3 className="font-semibold text-odoo-dark mb-2">Ready in 2 Minutes</h3>
-                <p className="text-gray-600">
-                  Quick setup process gets you connected with professionals immediately.
-                </p>
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MessageCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-odoo-dark mb-2">Share Your Expertise</h3>
+                  <p className="text-gray-600">
+                    Monetize your skills while helping others grow. Build your reputation as a subject matter expert.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Award className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-odoo-dark mb-2">Build Your Network</h3>
+                  <p className="text-gray-600">
+                    Connect with like-minded professionals and expand your career opportunities.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h4 className="font-semibold text-odoo-dark mb-4">How It Works</h4>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 bg-odoo-purple text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+                  <span className="text-sm text-gray-600">List your skills and what you want to learn</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 bg-odoo-purple text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+                  <span className="text-sm text-gray-600">Browse and connect with other professionals</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="h-6 w-6 bg-odoo-purple text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+                  <span className="text-sm text-gray-600">Exchange skills and grow together</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t bg-white/80 backdrop-blur-sm py-6">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm text-gray-500">
-            © 2024 SkillSwap. Professional skill exchange platform.
-          </p>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }
